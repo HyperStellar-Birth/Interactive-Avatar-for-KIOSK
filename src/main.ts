@@ -36,6 +36,49 @@ export async function getTokenOrRefresh() {
   }
 }
 
+async function talktoOpenAI(query:string) {
+  const settings = {
+    url: "https://openai-futurestore.openai.azure.com/openai/deployments/gpt-4/chat/completions?api-version=2024-02-15-preview",
+    method: "POST",
+    headers: {
+      "api-key": import.meta.env.VITE_OPENAI_KEY,
+      "Content-Type": "application/json"
+    },
+    data: JSON.stringify({
+      messages: [
+        {
+          role: "system",
+          content: [
+            {
+              type: "text",
+              text: "Take on the role of a customer care executive and engage with a customer in a friendly conversational tone. Your goal is to suggest products that align with the customer’s interests, persona, and specific queries, making them feel valued and appreciated throughout the interaction. Focus on understanding their needs and preferences, and craft your response to ensure the customer leaves the conversation feeling positive and excited about the products being suggested."
+            }
+          ]
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: query
+            }
+          ]
+        }
+      ],
+      temperature: 0.7,
+      top_p: 0.95,
+      max_tokens: 800
+    })
+  };
+
+  try {
+    const response = await axios(settings);
+    console.log(response.data.choices[0].message.content);
+  } catch (error) {
+    console.error('Error communicating with OpenAI:', error);
+  }
+}
+
 async function sttFromMic() {
   const tokenObj = await getTokenOrRefresh();
   const speechConfig = SpeechSDK.SpeechConfig.fromAuthorizationToken(tokenObj.authToken, tokenObj.region);
@@ -46,7 +89,8 @@ async function sttFromMic() {
   const audioConfig = SpeechSDK.AudioConfig.fromDefaultMicrophoneInput();
   recognizer = new SpeechSDK.SpeechRecognizer(speechConfig, audioConfig);
   console.log('speak into your microphone...');
-
+  startVoice.classList.remove('d-none');
+  stopVoice.classList.add('d-none');
   recognizer.startContinuousRecognitionAsync(
     () => {
       console.log('Recognition started successfully.');
@@ -63,6 +107,7 @@ async function sttFromMic() {
     } else {
       console.log(tempSpeech);
       showCaptions('Customer', tempSpeech);
+      talktoOpenAI(tempSpeech);
       tempSpeech = '';
       // console.log('ERROR: Speech was cancelled or could not be recognized. Ensure your microphone is working properly.');
     }
@@ -72,8 +117,11 @@ async function sttFromMic() {
     console.log('Session stopped event.');
     console.log(tempSpeech);
     showCaptions('Customer', tempSpeech);
+    talktoOpenAI(tempSpeech);
     tempSpeech = '';
     recognizer.stopContinuousRecognitionAsync();
+    startVoice.classList.add('d-none');
+    stopVoice.classList.remove('d-none');
   };
 
   recognizer.canceled = (_, e) => {
@@ -82,12 +130,16 @@ async function sttFromMic() {
       console.log('End of stream reached.');
       console.log(tempSpeech);
       recognizer.stopContinuousRecognitionAsync();
+      startVoice.classList.add('d-none');
+      stopVoice.classList.remove('d-none');
     }
   };
 }
 
 function stopMicrophone() {
   if (recognizer) {
+    startVoice.classList.add('d-none');
+    stopVoice.classList.remove('d-none');
     recognizer.stopContinuousRecognitionAsync();
     // console.log(tempSpeech);
       } else {
@@ -185,18 +237,18 @@ async function handleSpeak() {
 
 async function showCaptions(user: string, caption: string) {
   const captionElement = document.getElementById('captionText') as HTMLParagraphElement;
-  if (captionElement) {
-  switch (user) {
-    case 'Customer':
-        captionElement.textContent = `You: ${caption}`;
-      break;
-    case 'Avatar':
-        captionElement.textContent = `Nora: ${caption}`;
-      break;
+  if (captionElement && caption) {
+    switch (user) {
+      case 'Customer':
+          captionElement.textContent = `You: ${caption}`;
+        break;
+      case 'Avatar':
+          captionElement.textContent = `Nora: ${caption}`;
+        break;
       default:
         break;
-      }
     }
+  }
 }
 
 // Event listeners for buttons

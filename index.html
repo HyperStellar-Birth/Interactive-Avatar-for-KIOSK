@@ -33,11 +33,11 @@
           <i class="bi bi-stop-fill fs-5"></i> 
         </button>
         <!-- Start Voice -->
-        <button id="start-voice" class="btn btn-success rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+        <button id="start-voice" title="Start Voice" type="button" class="btn btn-success rounded-circle d-flex align-items-center justify-content-center d-none" style="width: 40px; height: 40px;">
           <i class="bi bi-mic-fill fs-5"></i> 
         </button>
         <!-- Stop Voice -->
-        <button id="stop-voice" title="Voice" type="button" class="btn btn-warning rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+        <button id="stop-voice" title="Stop Voice" type="button" class="btn btn-warning rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
           <i class="bi bi-mic-mute-fill fs-5"></i>
         </button>
         <!-- Interrupt -->
@@ -66,7 +66,7 @@
         <video id="avatarVideo" autoplay playsinline></video>
       </article>
       <div id="liveCaptions" style="position: fixed; bottom: 0; left: 0; width: 100%; background-color: rgba(0, 0, 0, 0.592); color: white; padding: 10px; text-align: center; font-size: 1.2em;">
-        <p id="captionText">Captions will appear here...</p>
+        <p id="captionText"></p>
       </div>
     </main>
 

@@ -20,5 +20,9 @@
     "noFallthroughCasesInSwitch": true,
     // "noUncheckedSideEffectImports": true
   },
-  "include": ["src"]
+  "include": ["src/**/*"],
+  "exclude": [
+        ".git",
+        "node_modules"
+    ]
 }
