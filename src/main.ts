@@ -74,6 +74,7 @@ async function talktoOpenAI(query:string) {
   try {
     const response = await axios(settings);
     console.log(response.data.choices[0].message.content);
+    showCaptions('Avatar', response.data.choices[0].message.content);
   } catch (error) {
     console.error('Error communicating with OpenAI:', error);
   }
@@ -107,7 +108,9 @@ async function sttFromMic() {
     } else {
       console.log(tempSpeech);
       showCaptions('Customer', tempSpeech);
-      talktoOpenAI(tempSpeech);
+      if (tempSpeech) {
+        talktoOpenAI(tempSpeech);
+      }
       tempSpeech = '';
       // console.log('ERROR: Speech was cancelled or could not be recognized. Ensure your microphone is working properly.');
     }
@@ -117,7 +120,9 @@ async function sttFromMic() {
     console.log('Session stopped event.');
     console.log(tempSpeech);
     showCaptions('Customer', tempSpeech);
-    talktoOpenAI(tempSpeech);
+    if (tempSpeech) {
+      talktoOpenAI(tempSpeech);
+    }
     tempSpeech = '';
     recognizer.stopContinuousRecognitionAsync();
     startVoice.classList.add('d-none');
@@ -259,7 +264,7 @@ speakButton.addEventListener("click", handleSpeak);
 // startVoice.addEventListener("click", startVoiceChat);
 startVoice.addEventListener('click', stopMicrophone);
 stopVoice.addEventListener("click", sttFromMic);
-interrupt.addEventListener("click", () => showCaptions('Avatar', 'Sample Text'));
+interrupt.addEventListener("click", () => talktoOpenAI('Hello'));
 
 // DOMContentLoaded 
 document.addEventListener('DOMContentLoaded', async function () {
