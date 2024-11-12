@@ -7,18 +7,27 @@ const cogSvcRegion = import.meta.env.VITE_SPEECH_SERVICE_REGION;
 const cogSvcSubKey = import.meta.env.VITE_SPEECH_SERVICE_KEY;
 let tempSpeech = '';
 let recognizer: SpeechSDK.SpeechRecognizer;
+// var userDetails = '';
+let chatHistory: Array<{ role: string, content: string }> = [];
+
 
 // DOM elements
 const videoElement = document.getElementById("avatarVideo") as HTMLVideoElement;
 const startButton = document.getElementById("startSession") as HTMLButtonElement;
 const endButton = document.getElementById("endSession") as HTMLButtonElement;
-const speakButton = document.getElementById("speakButton") as HTMLButtonElement;
-const userInput = document.getElementById("userInput") as HTMLInputElement;
+// const speakButton = document.getElementById("speakButton") as HTMLButtonElement;
+// const userInput = document.getElementById("userInput") as HTMLInputElement;
 
 const startVoice = document.getElementById("start-voice") as HTMLInputElement;
 const stopVoice = document.getElementById("stop-voice") as HTMLInputElement;
 const interrupt = document.getElementById("interrupt") as HTMLInputElement;
 
+// Azure Blob Service 
+const AZURE_STORAGE_CONNECTION_STRING = import.meta.env.VITE_AZURE_STORAGE_CONNECTION_STRING;
+
+if (!AZURE_STORAGE_CONNECTION_STRING) {
+  throw Error('Azure Storage Connection string not found');
+}
 
 export async function getTokenOrRefresh() {
   const headers = { 
@@ -36,7 +45,19 @@ export async function getTokenOrRefresh() {
   }
 }
 
-async function talktoOpenAI(query:string) {
+async function talktoOpenAI(query: string) {
+  // Prepare the chat history to be included in the messages
+  const chatHistoryMessages = chatHistory.map(chat => ({
+    role: chat.role,
+    content: chat.content
+  }));
+
+  // Add the current user query to the chat history
+  chatHistoryMessages.push({
+    role: "user",
+    content: query
+  });
+
   const settings = {
     url: "https://openai-futurestore.openai.azure.com/openai/deployments/gpt-4/chat/completions?api-version=2024-02-15-preview",
     method: "POST",
@@ -51,19 +72,11 @@ async function talktoOpenAI(query:string) {
           content: [
             {
               type: "text",
-              text: "Take on the role of a customer care executive and engage with a customer in a friendly conversational tone. Your goal is to suggest products that align with the customer’s interests, persona, and specific queries, making them feel valued and appreciated throughout the interaction. Focus on understanding their needs and preferences, and craft your response to ensure the customer leaves the conversation feeling positive and excited about the products being suggested."
+              text: `You are an Omantel virtual customer service executive. Begin by warmly greeting the customer and establishing a friendly rapport. Engage in a professional conversation to understand the customer's requirements thoroughly. Assist the customer in finding the best product from the Omantel store, ensuring a helpful and friendly interaction throughout. Your response must be in JSON format with only the 'speech' key, which contains the text you would say to the user.`
             }
           ]
         },
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: query
-            }
-          ]
-        }
+        ...chatHistoryMessages
       ],
       temperature: 0.7,
       top_p: 0.95,
@@ -74,18 +87,79 @@ async function talktoOpenAI(query:string) {
   try {
     const response = await axios(settings);
     console.log(response.data.choices[0].message.content);
-    showCaptions('Avatar', response.data.choices[0].message.content);
+    try {
+      const jsonResponse = JSON.parse(response.data.choices[0].message.content);
+      const speech = jsonResponse.speech;
+      chatHistory.push({
+        role: "assistant",
+        content: speech
+      });
+      if (sessionData) {
+        handleSpeak(speech);
+      }
+      showCaptions('Avatar', speech);
+    } catch (error) {
+      console.error("Failed to parse JSON response for chat history:", error);
+    }
+    // await handleOpenAIResponse(response.data.choices[0].message.content);
   } catch (error) {
     console.error('Error communicating with OpenAI:', error);
   }
 }
 
+// async function handleOpenAIResponse(response: string) {
+// try {
+//   const jsonResponse = JSON.parse(response);
+//   let userDetails = jsonResponse.user;
+//   console.log(userDetails);
+//   console.log("Parsed JSON response:", jsonResponse);
+//   showCaptions('Avatar', jsonResponse.speech);
+
+//   if (jsonResponse.function) {
+//     await handlefunction(jsonResponse.function, jsonResponse.parameters)
+//   }
+// } catch (error) {
+//   console.error("Failed to parse JSON response:", error);
+// }
+// }
+
+// async function getNewSIM() {
+//   if (userDetails) {
+    
+//   }else{
+
+//   }
+// }
+
+// // async function getUserDetails() {
+  
+// // }
+
+// async function handlefunction(functionName: string, parameters: any) {
+//   switch (functionName) {
+//     case 'new_sim':
+//       console.log("Executing new SIM function");
+//       await getNewSIM();
+//       break;
+//     case 'upgrade_sim':
+//       console.log("Executing upgrade SIM function with parameters:", parameters);
+//       break;
+//     case 'inquire_product':
+//       console.log("Executing inquire product function with parameters:", parameters);
+//       break;
+//     case 'ask_for_clarification':
+//       console.log("Executing ask for clarification function");
+//       break;
+//     default:
+//       console.error("Unknown function:", functionName);
+//   }
+// }
+
 async function sttFromMic() {
   const tokenObj = await getTokenOrRefresh();
   const speechConfig = SpeechSDK.SpeechConfig.fromAuthorizationToken(tokenObj.authToken, tokenObj.region);
   speechConfig.setProperty(SpeechSDK.PropertyId.SpeechServiceConnection_EndSilenceTimeoutMs, silenceTimeout);
-  speechConfig.setProperty(SpeechSDK.PropertyId.SpeechServiceConnection_AutoDetectSourceLanguages, "en-US,ar-MA,ar-AE");
-  // speechConfig.speechRecognitionLanguage = 'ar-AE';
+  speechConfig.setProperty(SpeechSDK.PropertyId.SpeechServiceConnection_AutoDetectSourceLanguages, "ar-MA,ar-AE");
   console.log(speechConfig);
   const audioConfig = SpeechSDK.AudioConfig.fromDefaultMicrophoneInput();
   recognizer = new SpeechSDK.SpeechRecognizer(speechConfig, audioConfig);
@@ -101,23 +175,36 @@ async function sttFromMic() {
     }
   );
 
+  recognizer.recognizing = (_, e) => {
+    // console.log(`RECOGNIZING: Text=${e.result.text}`);
+    showCaptions('Customer', e.result.text);
+  };
+
   recognizer.recognized = (_, e) => {
     if (e.result.reason === SpeechSDK.ResultReason.RecognizedSpeech) {
-      // console.log(`RECOGNIZED: Text=${e.result.text}`);
+      console.log(`RECOGNIZED: Text=${e.result.text}`);
       tempSpeech += e.result.text;
-    } else {
-      console.log(tempSpeech);
-      showCaptions('Customer', tempSpeech);
-      if (tempSpeech) {
-        talktoOpenAI(tempSpeech);
-      }
+      talktoOpenAI(tempSpeech);
       tempSpeech = '';
-      // console.log('ERROR: Speech was cancelled or could not be recognized. Ensure your microphone is working properly.');
+    } else if (e.result.reason === SpeechSDK.ResultReason.NoMatch) {
+      console.log("NOMATCH: Speech could not be recognized.");
     }
   };
 
-  recognizer.sessionStopped = () => {
-    console.log('Session stopped event.');
+  recognizer.canceled = (_, e) => {
+    console.log(`CANCELED: Reason=${e.reason}`);
+    if (e.reason === SpeechSDK.CancellationReason.Error) {
+      console.log(`"CANCELED: ErrorCode=${e.errorCode}`);
+      console.log(`"CANCELED: ErrorDetails=${e.errorDetails}`);
+      console.log("CANCELED: Did you set the speech resource key and region values?");
+    }
+    recognizer.stopContinuousRecognitionAsync();
+    startVoice.classList.add('d-none');
+    stopVoice.classList.remove('d-none');
+  };
+
+  recognizer.sessionStopped = (_) => {
+    console.log("\n    Session stopped event.");
     console.log(tempSpeech);
     showCaptions('Customer', tempSpeech);
     if (tempSpeech) {
@@ -127,17 +214,6 @@ async function sttFromMic() {
     recognizer.stopContinuousRecognitionAsync();
     startVoice.classList.add('d-none');
     stopVoice.classList.remove('d-none');
-  };
-
-  recognizer.canceled = (_, e) => {
-    console.log(`CANCELED: Reason=${e.reason}`);
-    if (e.reason === SpeechSDK.CancellationReason.EndOfStream) {
-      console.log('End of stream reached.');
-      console.log(tempSpeech);
-      recognizer.stopContinuousRecognitionAsync();
-      startVoice.classList.add('d-none');
-      stopVoice.classList.remove('d-none');
-    }
   };
 }
 
@@ -231,12 +307,12 @@ async function terminateAvatarSession() {
 }
 
 // Handle speaking event
-async function handleSpeak() {
-  if (avatar && userInput.value) {
+async function handleSpeak(text : string) {
+  if (avatar && text) {
     await avatar.speak({
-      text: userInput.value,
+      text: text,
     });
-    userInput.value = ""; // Clear input after speaking
+    // userInput.value = ""; // Clear input after speaking
   }
 }
 
@@ -259,12 +335,12 @@ async function showCaptions(user: string, caption: string) {
 // Event listeners for buttons
 startButton.addEventListener("click", initializeAvatarSession);
 endButton.addEventListener("click", terminateAvatarSession);
-speakButton.addEventListener("click", handleSpeak);
+// speakButton.addEventListener("click", handleSpeak);
 
 // startVoice.addEventListener("click", startVoiceChat);
 startVoice.addEventListener('click', stopMicrophone);
 stopVoice.addEventListener("click", sttFromMic);
-interrupt.addEventListener("click", () => talktoOpenAI('Hello'));
+interrupt.addEventListener("click", sttFromMic);
 
 // DOMContentLoaded 
 document.addEventListener('DOMContentLoaded', async function () {
