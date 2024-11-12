@@ -9,8 +9,8 @@ let tempSpeech = '';
 let recognizer: SpeechSDK.SpeechRecognizer;
 // var userDetails = '';
 let chatHistory: Array<{ role: string, content: string }> = [];
-
-
+const test = import.meta.env.VITE_HEYGEN_API_KEY;
+console.log(test);
 // DOM elements
 const videoElement = document.getElementById("avatarVideo") as HTMLVideoElement;
 const startButton = document.getElementById("startSession") as HTMLButtonElement;
@@ -331,6 +331,8 @@ async function showCaptions(user: string, caption: string) {
     }
   }
 }
+
+
 
 // Event listeners for buttons
 startButton.addEventListener("click", initializeAvatarSession);
