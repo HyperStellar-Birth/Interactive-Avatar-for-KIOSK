@@ -1,5 +1,5 @@
 import axios from 'axios';
-import StreamingAvatar, { AvatarQuality, StreamingEvents, } from "@heygen/streaming-avatar";
+import StreamingAvatar, { AvatarQuality, StreamingEvents, VoiceEmotion } from "@heygen/streaming-avatar";
 import * as SpeechSDK from 'microsoft-cognitiveservices-speech-sdk';
 
 var silenceTimeout = '3000';
@@ -261,6 +261,11 @@ async function initializeAvatarSession() {
   sessionData = await avatar.createStartAvatar({
     quality: AvatarQuality.High,
     avatarName: import.meta.env.VITE_HEYGEN_AVATAR_ID,
+    voice: {
+      voiceId: "541bcb19bb0745ef8f82c3286d079d98",
+      rate: 1.5, // 0.5 ~ 1.5
+      emotion: VoiceEmotion.EXCITED,
+    },
   });
 
   console.log("Session data:", sessionData);
