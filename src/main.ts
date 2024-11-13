@@ -87,10 +87,11 @@ async function talktoOpenAI(query: string) {
 
   try {
     const response = await axios(settings);
-    console.log(response.data.choices[0].message.content);
+    // console.log(response.data.choices[0].message.content);
     try {
       const jsonResponse = JSON.parse(response.data.choices[0].message.content);
       const speech = jsonResponse.speech;
+      console.log("Nora: " + speech);
       chatHistory.push({
         role: "assistant",
         content: speech
