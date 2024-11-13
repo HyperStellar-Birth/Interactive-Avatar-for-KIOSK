@@ -261,11 +261,10 @@ async function initializeAvatarSession() {
   sessionData = await avatar.createStartAvatar({
     quality: AvatarQuality.High,
     avatarName: import.meta.env.VITE_HEYGEN_AVATAR_ID,
-    voice: {
-      voiceId: "541bcb19bb0745ef8f82c3286d079d98",
-      rate: 1.5, // 0.5 ~ 1.5
-      emotion: VoiceEmotion.EXCITED,
-    },
+    // voice:{
+    //   voiceId:"084760b4922a44599575c770070ec2d7"
+    // },
+    language: "Arabic"
   });
 
   console.log("Session data:", sessionData);
@@ -347,7 +346,7 @@ endButton.addEventListener("click", terminateAvatarSession);
 // startVoice.addEventListener("click", startVoiceChat);
 startVoice.addEventListener('click', stopMicrophone);
 stopVoice.addEventListener("click", sttFromMic);
-interrupt.addEventListener("click", sttFromMic);
+interrupt.addEventListener("click", () => handleSpeak('مرحبا بكم في خدمة المشتركين من عمانتل! أنا بخير ، شكرا على سؤالك. كيف يمكنني مساعدتك اليوم؟'));
 
 // DOMContentLoaded 
 document.addEventListener('DOMContentLoaded', async function () {
