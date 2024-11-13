@@ -1,5 +1,5 @@
 import axios from 'axios';
-import StreamingAvatar, { AvatarQuality, StreamingEvents, VoiceEmotion } from "@heygen/streaming-avatar";
+import StreamingAvatar, { AvatarQuality, StreamingEvents, VoiceEmotion, TaskType } from "@heygen/streaming-avatar";
 import * as SpeechSDK from 'microsoft-cognitiveservices-speech-sdk';
 
 var silenceTimeout = '3000';
@@ -21,6 +21,7 @@ const endButton = document.getElementById("endSession") as HTMLButtonElement;
 const startVoice = document.getElementById("start-voice") as HTMLInputElement;
 const stopVoice = document.getElementById("stop-voice") as HTMLInputElement;
 const interrupt = document.getElementById("interrupt") as HTMLInputElement;
+const loaderElement = document.querySelector('#loader');
 
 // Azure Blob Service 
 const AZURE_STORAGE_CONNECTION_STRING = import.meta.env.VITE_AZURE_STORAGE_CONNECTION_STRING;
@@ -251,7 +252,9 @@ async function fetchAccessToken(): Promise<string> {
 
 // Initialize streaming avatar session
 async function initializeAvatarSession() {
-  debugger;
+  if (loaderElement) {
+    loaderElement.classList.remove('d-none');
+  }  debugger;
   const token = await fetchAccessToken();
   console.log(token);
   avatar = new StreamingAvatar({ token });
@@ -261,9 +264,10 @@ async function initializeAvatarSession() {
   sessionData = await avatar.createStartAvatar({
     quality: AvatarQuality.High,
     avatarName: import.meta.env.VITE_HEYGEN_AVATAR_ID,
-    // voice:{
-    //   voiceId:"084760b4922a44599575c770070ec2d7"
-    // },
+    voice:{
+      // voiceId:"084760b4922a44599575c770070ec2d7",
+      emotion: VoiceEmotion.FRIENDLY
+    },
     language: "Arabic"
   });
 
@@ -272,6 +276,9 @@ async function initializeAvatarSession() {
   // Enable end button and disable start button
   endButton.disabled = false;
   startButton.disabled = true;
+  if (loaderElement) {
+    loaderElement.classList.add('d-none');
+  }
 
   avatar.on(StreamingEvents.STREAM_READY, handleStreamReady);
   avatar.on(StreamingEvents.STREAM_DISCONNECTED, handleStreamDisconnected);
@@ -315,6 +322,7 @@ async function handleSpeak(text : string) {
   if (avatar && text) {
     await avatar.speak({
       text: text,
+      task_type: TaskType.REPEAT
     });
     // userInput.value = ""; // Clear input after speaking
   }
