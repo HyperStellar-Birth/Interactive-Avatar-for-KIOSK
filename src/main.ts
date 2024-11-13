@@ -172,7 +172,7 @@ async function talktoOpenAI(query: string) {
 async function getProducts() {
 try {
     const response = await axios.get('https://futurestorestorage.blob.core.windows.net/products/OmanProducts.txt');
-    const products = response.data.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+    const products = response.data.split('\n').map((line: string) => line.trim()).filter((line: string) => line.length > 0);
     console.log('Products:', products);
     return products;
 } catch (error) {
