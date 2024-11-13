@@ -11,6 +11,9 @@ let recognizer: SpeechSDK.SpeechRecognizer;
 let chatHistory: Array<{ role: string, content: string }> = [];
 const test = import.meta.env.VITE_HEYGEN_API_KEY;
 console.log(test);
+const products = getProducts();
+console.log(products);
+
 // DOM elements
 const videoElement = document.getElementById("avatarVideo") as HTMLVideoElement;
 const startButton = document.getElementById("startSession") as HTMLButtonElement;
@@ -58,7 +61,6 @@ async function talktoOpenAI(query: string) {
     role: "user",
     content: query
   });
-
   const settings = {
     url: "https://openai-futurestore.openai.azure.com/openai/deployments/gpt-4/chat/completions?api-version=2024-02-15-preview",
     method: "POST",
@@ -73,7 +75,16 @@ async function talktoOpenAI(query: string) {
           content: [
             {
               type: "text",
-              text: `You are an Omantel virtual customer service executive. Begin by warmly greeting the customer and establishing a friendly rapport. Engage in a professional conversation to understand the customer's requirements thoroughly. Assist the customer in finding the best product from the Omantel store, ensuring a helpful and friendly interaction throughout. Your response must be in JSON format with only the 'speech' key, which contains the text you would say to the user.`
+              text: `You are an Omantel virtual customer service executive. Begin by warmly greeting the customer and establishing a friendly rapport. Engage in a professional conversation to understand the customer's requirements thoroughly. Assist the customer in finding the best product from the Omantel store, ensuring a helpful and friendly interaction throughout. You should communicate with the customer in a better way and if the customer is greeting you then greet back.`
+            }
+          ]
+        },
+        {
+          role: "system",
+          content: [
+            {
+              type: "text",
+              text: `The products Details are`+ products
             }
           ]
         },
@@ -84,13 +95,14 @@ async function talktoOpenAI(query: string) {
       max_tokens: 800
     })
   };
-
+  
   try {
     const response = await axios(settings);
     // console.log(response.data.choices[0].message.content);
     try {
-      const jsonResponse = JSON.parse(response.data.choices[0].message.content);
-      const speech = jsonResponse.speech;
+      // const jsonResponse = JSON.parse(response.data.choices[0].message.content);
+      // const speech = jsonResponse.speech;
+      const speech = response.data.choices[0].message.content;
       console.log("Nora: " + speech);
       chatHistory.push({
         role: "assistant",
@@ -157,6 +169,18 @@ async function talktoOpenAI(query: string) {
 //   }
 // }
 
+async function getProducts() {
+try {
+    const response = await axios.get('https://futurestorestorage.blob.core.windows.net/products/OmanProducts.txt');
+    const products = response.data.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+    console.log('Products:', products);
+    return products;
+} catch (error) {
+    console.error('Error fetching products:', error);
+    throw new Error('Failed to fetch products');
+}
+}
+
 async function sttFromMic() {
   const tokenObj = await getTokenOrRefresh();
   const speechConfig = SpeechSDK.SpeechConfig.fromAuthorizationToken(tokenObj.authToken, tokenObj.region);
@@ -179,6 +203,7 @@ async function sttFromMic() {
 
   recognizer.recognizing = (_, e) => {
     // console.log(`RECOGNIZING: Text=${e.result.text}`);
+    handleInterrupt();
     showCaptions('Customer', e.result.text);
   };
 
@@ -186,6 +211,7 @@ async function sttFromMic() {
     if (e.result.reason === SpeechSDK.ResultReason.RecognizedSpeech) {
       console.log(`RECOGNIZED: Text=${e.result.text}`);
       tempSpeech += e.result.text;
+      handleInterrupt();
       talktoOpenAI(tempSpeech);
       tempSpeech = '';
     } else if (e.result.reason === SpeechSDK.ResultReason.NoMatch) {
@@ -292,6 +318,7 @@ function handleStreamReady(event: any) {
     videoElement.onloadedmetadata = () => {
       videoElement.play().catch(console.error);
     };
+    talktoOpenAI('Greet me introduce yourself and tell me that you are happy to meet me in short.');
   } else {
     console.error("Stream is not available");
   }
@@ -326,6 +353,12 @@ async function handleSpeak(text : string) {
       task_type: TaskType.REPEAT
     });
     // userInput.value = ""; // Clear input after speaking
+  }
+}
+
+async function handleInterrupt() {
+  if (avatar) {
+    await avatar.interrupt();
   }
 }
 
